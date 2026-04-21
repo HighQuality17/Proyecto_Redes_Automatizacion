@@ -1,0 +1,52 @@
+INVENTORY = {
+    "SWML1": {
+        "device_type": "cisco_ios",
+        "host": "10.10.90.2",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+    "SWML2": {
+        "device_type": "cisco_ios",
+        "host": "10.10.90.3",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+    "SWML3": {
+        "device_type": "cisco_ios",
+        "host": "10.10.90.4",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+    "SWML4": {
+        "device_type": "cisco_ios",
+        "host": "10.10.90.5",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+    "FW1": {
+        "device_type": "cisco_ios",
+        "host": "10.10.254.1",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+    "FW2": {
+        "device_type": "cisco_ios",
+        "host": "10.10.254.17",
+        "username": "admin",
+        "password": "cisco123",
+        "secret": "cisco123",
+        "fast_cli": False,
+    },
+}
+
+DEPLOY_ORDER = ["SWML1", "SWML2", "SWML3", "SWML4", "FW1", "FW2"]
