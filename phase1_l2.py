@@ -26,6 +26,11 @@ def vlan_database_commands():
     return cmds
 
 
+def trunk_allowed_command():
+    # This IOS image requires "add" so default VLANs stay in the allowed list.
+    return f"switchport trunk allowed vlan add {TRUNK_ALLOWED}"
+
+
 def trunk_commands(sw_name: str):
     trunks = CORE_TRUNKS.get(sw_name, []) + ACCESS_TRUNKS.get(sw_name, [])
     cmds = []
@@ -35,7 +40,7 @@ def trunk_commands(sw_name: str):
             f"description {description}",
             "switchport",
             "switchport mode trunk",
-            f"switchport trunk allowed vlan {TRUNK_ALLOWED}",
+            trunk_allowed_command(),
             "no shutdown",
             "exit",
         ])
@@ -48,7 +53,7 @@ def etherchannel_commands():
         "description PO_TO_PEER_SWML",
         "switchport",
         "switchport mode trunk",
-        f"switchport trunk allowed vlan {TRUNK_ALLOWED}",
+        trunk_allowed_command(),
         "no shutdown",
         "exit",
     ]
@@ -58,7 +63,7 @@ def etherchannel_commands():
             "description EC_MEMBER_TO_PEER_SWML",
             "switchport",
             "switchport mode trunk",
-            f"switchport trunk allowed vlan {TRUNK_ALLOWED}",
+            trunk_allowed_command(),
             f"channel-group {PORT_CHANNEL_ID} mode on",
             "no shutdown",
             "exit",
@@ -67,17 +72,8 @@ def etherchannel_commands():
 
 
 def stp_commands(sw_name: str):
-    if sw_name == "SWML1":
-        primary = ",".join(map(str, sorted(SWML1_ACTIVE_VLANS)))
-        secondary = ",".join(map(str, sorted(SWML2_ACTIVE_VLANS)))
-    else:
-        primary = ",".join(map(str, sorted(SWML2_ACTIVE_VLANS)))
-        secondary = ",".join(map(str, sorted(SWML1_ACTIVE_VLANS)))
-
-    return [
-        f"spanning-tree vlan {primary} priority 4096",
-        f"spanning-tree vlan {secondary} priority 8192",
-    ]
+    # Disabled temporarily: this IOS image rejects "spanning-tree vlan ... priority ...".
+    return []
 
 
 def access_port_commands(sw_name: str):
@@ -90,7 +86,6 @@ def access_port_commands(sw_name: str):
             "switchport mode access",
             f"switchport access vlan {vlan_id}",
             "spanning-tree portfast",
-            "spanning-tree bpduguard enable",
             "no shutdown",
             "exit",
         ])
@@ -121,7 +116,8 @@ def main():
             push_config(conn, trunk_commands(device_name), f"Trunks - {device_name}")
             if device_name in CORE_SWITCHES:
                 push_config(conn, etherchannel_commands(), f"EtherChannel - {device_name}")
-                push_config(conn, stp_commands(device_name), f"STP - {device_name}")
+                # STP priority config disabled for this IOS image.
+                # push_config(conn, stp_commands(device_name), f"STP - {device_name}")
             else:
                 push_config(conn, access_port_commands(device_name), f"Access ports - {device_name}")
                 push_config(conn, access_switch_mgmt_commands(device_name), f"Management SVI - {device_name}")
