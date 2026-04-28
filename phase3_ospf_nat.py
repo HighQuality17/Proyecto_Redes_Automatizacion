@@ -1,3 +1,5 @@
+import time
+
 from config_data import (
     CORE_SWITCHES,
     DMZ_MASK,
@@ -20,7 +22,10 @@ from config_data import (
     SWML1_TO_FW1_IF,
     SWML2_TO_FW2_IF,
 )
-from common import connect, push_config, save_config
+from common import connect, push_config, save_config, check_ssh
+
+
+PHASE3_DEVICES = ["SWML1", "SWML2", "FW1", "FW2"]
 
 
 def build_fw1_interfaces():
@@ -28,18 +33,26 @@ def build_fw1_interfaces():
         f"interface {FW1_TO_SWML1_IF}",
         "description L3_TO_SWML1",
         f"ip address {FW1_TO_SWML1_IP} {MASK_30}",
+        "no ip redirects",
+        "no ip proxy-arp",
         "ip nat inside",
         "no shutdown",
         "exit",
+
         f"interface {FW1_TO_FW2_IF}",
         "description L3_TO_FW2",
         f"ip address {FW1_TO_FW2_IP} {MASK_30}",
+        "no ip redirects",
+        "no ip proxy-arp",
         "ip nat inside",
         "no shutdown",
         "exit",
+
         f"interface {FW1_OUTSIDE_IF}",
         "description HYBRID_OUTSIDE_TO_EDGE_FISICO",
         f"ip address {FW1_OUTSIDE_IP} {FW1_OUTSIDE_MASK}",
+        "no ip redirects",
+        "no ip proxy-arp",
         "ip nat outside",
         "no shutdown",
         "exit",
@@ -51,41 +64,58 @@ def build_fw2_interfaces():
         f"interface {FW2_TO_SWML2_IF}",
         "description L3_TO_SWML2",
         f"ip address {FW2_TO_SWML2_IP} {MASK_30}",
+        "no ip redirects",
+        "no ip proxy-arp",
         "no shutdown",
         "exit",
+
         f"interface {FW2_TO_FW1_IF}",
         "description L3_TO_FW1",
         f"ip address {FW2_TO_FW1_IP} {MASK_30}",
+        "no ip redirects",
+        "no ip proxy-arp",
         "no shutdown",
         "exit",
     ]
 
 
-def build_fw1_nat():
+def build_fw1_nat_and_routes():
     cmds = [
         f"no ip nat inside source list NAT_HIBRIDA interface {FW1_OUTSIDE_IF} overload",
         "no ip access-list standard NAT_HIBRIDA",
         "ip access-list standard NAT_HIBRIDA",
     ]
+
     for network in NAT_INSIDE_NETWORKS:
         cmds.append(f"permit {network}")
+
     cmds.extend([
         "exit",
         f"ip nat inside source list NAT_HIBRIDA interface {FW1_OUTSIDE_IF} overload",
+
+        # Ruta hacia DMZ física detrás de EDGE-FISICO.
         f"ip route {DMZ_NETWORK} {DMZ_MASK} {EDGE_FISICO_NEXT_HOP}",
+
+        # Ruta default hacia nube / EDGE-FISICO.
+        f"ip route 0.0.0.0 0.0.0.0 {EDGE_FISICO_NEXT_HOP}",
     ])
+
     return cmds
 
 
-def build_fw2_static():
+def build_fw2_static_routes():
     return [
-        # Physical DMZ is reached through FW1. VLAN 70 is not configured in GNS3.
+        # DMZ física se alcanza por FW1.
         f"ip route {DMZ_NETWORK} {DMZ_MASK} {FW1_TO_FW2_IP}",
+
+        # Salida híbrida por FW1.
+        f"ip route 0.0.0.0 0.0.0.0 {FW1_TO_FW2_IP}",
     ]
 
 
 def build_ospf_swml(sw_name: str):
     rid = OSPF_RIDS[sw_name]
+
     if sw_name == "SWML1":
         uplink_if = SWML1_TO_FW1_IF
         transit_network = "10.10.254.0 0.0.0.3"
@@ -112,6 +142,7 @@ def build_ospf_swml(sw_name: str):
 
 def build_ospf_fw(fw_name: str):
     rid = OSPF_RIDS[fw_name]
+
     if fw_name == "FW1":
         return [
             "router ospf 1",
@@ -121,8 +152,10 @@ def build_ospf_fw(fw_name: str):
             f"no passive-interface {FW1_TO_FW2_IF}",
             "network 10.10.254.0 0.0.0.3 area 0",
             "network 10.10.254.32 0.0.0.3 area 0",
+            "default-information originate",
             "exit",
         ]
+
     return [
         "router ospf 1",
         f"router-id {rid}",
@@ -135,21 +168,48 @@ def build_ospf_fw(fw_name: str):
     ]
 
 
-def build_swml_static_dmz(sw_name: str):
+def build_swml_static_routes(sw_name: str):
     next_hop = "10.10.254.1" if sw_name == "SWML1" else "10.10.254.17"
+
     return [
+        # Rutas específicas hacia zona híbrida/DMZ.
         f"ip route {DMZ_NETWORK} {DMZ_MASK} {next_hop}",
         f"ip route 192.168.100.0 255.255.255.0 {next_hop}",
     ]
 
 
+def precheck_devices():
+    print("\n========== PRE-CHECK SSH FASE 3 ==========")
+
+    failed = []
+
+    for device_name in PHASE3_DEVICES:
+        if not check_ssh(device_name):
+            failed.append(device_name)
+
+    if failed:
+        print("\n[STOP] No se puede iniciar fase 3.")
+        print(f"Equipos sin SSH: {failed}")
+        return False
+
+    print("\n[OK] Todos los equipos de fase 3 responden por SSH.")
+    return True
+
+
 def main():
-    # OSPF only runs on SWML1/SWML2/FW1/FW2. NAT only runs on FW1.
+    if not precheck_devices():
+        return
+
+    print("\n========== CONFIGURANDO INTERFACES Y RUTAS ==========")
+
     conn = connect("FW1")
     try:
         push_config(conn, build_fw1_interfaces(), "FW1 interfaces")
-        push_config(conn, build_fw1_nat(), "FW1 NAT")
-        push_config(conn, build_ospf_fw("FW1"), "FW1 OSPF")
+        time.sleep(3)
+
+        push_config(conn, build_fw1_nat_and_routes(), "FW1 NAT + routes")
+        time.sleep(3)
+
         save_config(conn)
     finally:
         conn.disconnect()
@@ -157,8 +217,11 @@ def main():
     conn = connect("FW2")
     try:
         push_config(conn, build_fw2_interfaces(), "FW2 interfaces")
-        push_config(conn, build_fw2_static(), "FW2 static route to DMZ")
-        push_config(conn, build_ospf_fw("FW2"), "FW2 OSPF")
+        time.sleep(3)
+
+        push_config(conn, build_fw2_static_routes(), "FW2 static routes")
+        time.sleep(3)
+
         save_config(conn)
     finally:
         conn.disconnect()
@@ -166,11 +229,40 @@ def main():
     for device_name in CORE_SWITCHES:
         conn = connect(device_name)
         try:
-            push_config(conn, build_swml_static_dmz(device_name), f"{device_name} routes to DMZ/hybrid")
-            push_config(conn, build_ospf_swml(device_name), f"{device_name} OSPF")
+            push_config(conn, build_swml_static_routes(device_name), f"{device_name} routes to hybrid/DMZ")
+            time.sleep(3)
             save_config(conn)
         finally:
             conn.disconnect()
+
+    print("\n========== CONFIGURANDO OSPF ==========")
+
+    conn = connect("FW1")
+    try:
+        push_config(conn, build_ospf_fw("FW1"), "FW1 OSPF")
+        time.sleep(5)
+        save_config(conn)
+    finally:
+        conn.disconnect()
+
+    conn = connect("FW2")
+    try:
+        push_config(conn, build_ospf_fw("FW2"), "FW2 OSPF")
+        time.sleep(5)
+        save_config(conn)
+    finally:
+        conn.disconnect()
+
+    for device_name in CORE_SWITCHES:
+        conn = connect(device_name)
+        try:
+            push_config(conn, build_ospf_swml(device_name), f"{device_name} OSPF")
+            time.sleep(5)
+            save_config(conn)
+        finally:
+            conn.disconnect()
+
+    print("\n[OK] Fase 3 finalizada.")
 
 
 if __name__ == "__main__":
