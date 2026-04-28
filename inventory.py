@@ -6,6 +6,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
     "SWML2": {
         "device_type": "cisco_ios",
@@ -14,6 +18,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
     "SWML3": {
         "device_type": "cisco_ios",
@@ -22,6 +30,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
     "SWML4": {
         "device_type": "cisco_ios",
@@ -30,6 +42,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
     "FW1": {
         "device_type": "cisco_ios",
@@ -38,6 +54,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
     "FW2": {
         "device_type": "cisco_ios",
@@ -46,6 +66,10 @@ INVENTORY = {
         "password": "cisco123",
         "secret": "cisco123",
         "fast_cli": False,
+        "conn_timeout": 20,
+        "auth_timeout": 20,
+        "banner_timeout": 20,
+        "global_delay_factor": 2,
     },
 }
 

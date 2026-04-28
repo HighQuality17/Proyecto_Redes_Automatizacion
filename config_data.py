@@ -19,7 +19,7 @@ FIREWALLS = ["FW1", "FW2"]
 OSPF_DEVICES = CORE_SWITCHES + FIREWALLS
 
 MANAGEMENT_VLAN = 90
-MANAGEMENT_GATEWAY = "10.10.90.1"
+MANAGEMENT_GATEWAY = "10.10.90.2"
 ACCESS_SWITCH_MGMT_IPS = {
     "SWML3": "10.10.90.4",
     "SWML4": "10.10.90.5",
@@ -44,7 +44,12 @@ SWML2_ACTIVE_VLANS = {40, 50, 60}
 
 # EtherChannel between SWML1 and SWML2
 PORT_CHANNEL_ID = 1
-EC_MEMBERS = ["FastEthernet1/4", "FastEthernet1/5"]
+
+EC_MEMBERS = {
+    "SWML1": ["FastEthernet1/4", "FastEthernet1/5"],
+    "SWML2": ["FastEthernet1/4", "FastEthernet1/5"],
+}
+
 TRUNK_ALLOWED = "10,20,30,40,50,60,90"
 
 CORE_TRUNKS = {
