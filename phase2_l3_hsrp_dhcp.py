@@ -9,7 +9,6 @@ from config_data import (
     SWML1_ACTIVE_VLANS,
     SWML1_TO_FW1_IF,
     SWML1_TO_FW1_IP,
-    SWML2_ACTIVE_VLANS,
     SWML2_TO_FW2_IF,
     SWML2_TO_FW2_IP,
     VLAN_GATEWAYS,
@@ -50,7 +49,7 @@ def build_hsrp_svis(sw_name: str):
 
     for vlan_id, (vip, sw1_ip, sw2_ip) in VLAN_GATEWAYS.items():
         local_ip = sw1_ip if sw_name == "SWML1" else sw2_ip
-        active_vlans = SWML1_ACTIVE_VLANS if sw_name == "SWML1" else SWML2_ACTIVE_VLANS
+        active_vlans = SWML1_ACTIVE_VLANS if sw_name == "SWML1" else set(VLAN_GATEWAYS.keys()) - SWML1_ACTIVE_VLANS
         priority = 110 if vlan_id in active_vlans else 90
 
         cmds.extend([
@@ -69,21 +68,37 @@ def build_hsrp_svis(sw_name: str):
     return cmds
 
 
+def get_real_default_gateway(vlan_id: int):
+    """
+    En este IOS el VIP HSRP .1 no responde bien desde los hosts.
+    Por eso el DHCP entrega como gateway la SVI real del switch activo.
+    """
+    vip, sw1_ip, sw2_ip = VLAN_GATEWAYS[vlan_id]
+
+    if vlan_id in SWML1_ACTIVE_VLANS:
+        return sw1_ip
+
+    return sw2_ip
+
+
 def build_dhcp_swml1():
     cmds = ["service dhcp"]
 
     for vlan_id in DHCP_VLANS:
-        vip, _, _ = VLAN_GATEWAYS[vlan_id]
+        vip, sw1_ip, sw2_ip = VLAN_GATEWAYS[vlan_id]
+        default_router = get_real_default_gateway(vlan_id)
+
         octets = vip.split(".")
         prefix = ".".join(octets[:3])
         network = f"{prefix}.0"
 
         cmds.extend([
+            f"no ip dhcp pool VLAN{vlan_id}",
             f"ip dhcp excluded-address {prefix}.1 {prefix}.49",
             f"ip dhcp excluded-address {prefix}.201 {prefix}.254",
             f"ip dhcp pool VLAN{vlan_id}",
             f"network {network} {MASK_24}",
-            f"default-router {vip}",
+            f"default-router {default_router}",
             "dns-server 8.8.8.8",
             "exit",
         ])
@@ -93,7 +108,8 @@ def build_dhcp_swml1():
 
 def build_access_gateway_commands():
     return [
-        "ip default-gateway 10.10.90.1",
+        # No usamos 10.10.90.1 porque el VIP HSRP falla en esta imagen.
+        "ip default-gateway 10.10.90.2",
     ]
 
 

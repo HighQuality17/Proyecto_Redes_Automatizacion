@@ -83,6 +83,11 @@ def build_fw1_nat_and_routes():
     cmds = [
         f"no ip nat inside source list NAT_HIBRIDA interface {FW1_OUTSIDE_IF} overload",
         "no ip access-list standard NAT_HIBRIDA",
+
+        # Limpieza de rutas previas para que el script sea repetible.
+        f"no ip route {DMZ_NETWORK} {DMZ_MASK} {EDGE_FISICO_NEXT_HOP}",
+        f"no ip route 0.0.0.0 0.0.0.0 {EDGE_FISICO_NEXT_HOP}",
+
         "ip access-list standard NAT_HIBRIDA",
     ]
 
@@ -91,12 +96,14 @@ def build_fw1_nat_and_routes():
 
     cmds.extend([
         "exit",
+
+        # NAT overload solo en FW1 hacia EDGE-FISICO.
         f"ip nat inside source list NAT_HIBRIDA interface {FW1_OUTSIDE_IF} overload",
 
-        # Ruta hacia DMZ física detrás de EDGE-FISICO.
+        # Ruta hacia DMZ física detrás del router HP / EDGE-FISICO.
         f"ip route {DMZ_NETWORK} {DMZ_MASK} {EDGE_FISICO_NEXT_HOP}",
 
-        # Ruta default hacia nube / EDGE-FISICO.
+        # Ruta por defecto hacia router físico / EDGE-FISICO.
         f"ip route 0.0.0.0 0.0.0.0 {EDGE_FISICO_NEXT_HOP}",
     ])
 
@@ -105,10 +112,12 @@ def build_fw1_nat_and_routes():
 
 def build_fw2_static_routes():
     return [
-        # DMZ física se alcanza por FW1.
-        f"ip route {DMZ_NETWORK} {DMZ_MASK} {FW1_TO_FW2_IP}",
+        # Limpieza para evitar duplicados si se corre varias veces.
+        f"no ip route {DMZ_NETWORK} {DMZ_MASK} {FW1_TO_FW2_IP}",
+        f"no ip route 0.0.0.0 0.0.0.0 {FW1_TO_FW2_IP}",
 
-        # Salida híbrida por FW1.
+        # DMZ física y salida híbrida se alcanzan por FW1.
+        f"ip route {DMZ_NETWORK} {DMZ_MASK} {FW1_TO_FW2_IP}",
         f"ip route 0.0.0.0 0.0.0.0 {FW1_TO_FW2_IP}",
     ]
 
@@ -152,6 +161,8 @@ def build_ospf_fw(fw_name: str):
             f"no passive-interface {FW1_TO_FW2_IF}",
             "network 10.10.254.0 0.0.0.3 area 0",
             "network 10.10.254.32 0.0.0.3 area 0",
+
+            # Anuncia default route al dominio OSPF.
             "default-information originate",
             "exit",
         ]
@@ -172,6 +183,10 @@ def build_swml_static_routes(sw_name: str):
     next_hop = "10.10.254.1" if sw_name == "SWML1" else "10.10.254.17"
 
     return [
+        # Limpieza para evitar rutas duplicadas si se vuelve a correr la fase.
+        f"no ip route {DMZ_NETWORK} {DMZ_MASK} {next_hop}",
+        f"no ip route 192.168.100.0 255.255.255.0 {next_hop}",
+
         # Rutas específicas hacia zona híbrida/DMZ.
         f"ip route {DMZ_NETWORK} {DMZ_MASK} {next_hop}",
         f"ip route 192.168.100.0 255.255.255.0 {next_hop}",
@@ -231,6 +246,7 @@ def main():
         try:
             push_config(conn, build_swml_static_routes(device_name), f"{device_name} routes to hybrid/DMZ")
             time.sleep(3)
+
             save_config(conn)
         finally:
             conn.disconnect()
@@ -241,6 +257,7 @@ def main():
     try:
         push_config(conn, build_ospf_fw("FW1"), "FW1 OSPF")
         time.sleep(5)
+
         save_config(conn)
     finally:
         conn.disconnect()
@@ -249,6 +266,7 @@ def main():
     try:
         push_config(conn, build_ospf_fw("FW2"), "FW2 OSPF")
         time.sleep(5)
+
         save_config(conn)
     finally:
         conn.disconnect()
@@ -258,6 +276,7 @@ def main():
         try:
             push_config(conn, build_ospf_swml(device_name), f"{device_name} OSPF")
             time.sleep(5)
+
             save_config(conn)
         finally:
             conn.disconnect()
