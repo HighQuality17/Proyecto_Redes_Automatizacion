@@ -8,17 +8,14 @@ Automatización completa de una red híbrida empresarial sobre equipos Cisco IOS
 
 La topología implementada incluye:
 
-- **2 Core Switches (SWML1 / SWML2)** — switching L3 con inter-VLAN routing y redundancia HSRP
-- **2 Firewalls (FW1 / FW2)** — enrutamiento hacia zona DMZ híbrida e internet
+- **2 Firewalls (FW1 / FW2)** — enrutamiento hacia zona DMZ híbrida e internet, conectados a la nube/edge físico
+- **2 Core Switches L3 (SWML1 / SWML2)** — inter-VLAN routing y redundancia HSRP, conectados en malla con los firewalls
+- **2 Switches de Acceso L2 (SWML3 / SWML4)** — conectividad hacia end devices (PC1–PC6), con uplinks duales hacia ambos core switches
 - **VLANs segmentadas** por departamento/función (datos, voz, gestión, servidores, DMZ)
-- **Zona híbrida** con conectividad hacia infraestructura física externa
+- **Zona híbrida física** compuesta por un **router HP** y un **switch Cisco físicos**, conectados a GNS3 mediante interfaces de red reales. El router HP proveía la salida a internet y FW1 enrutaba el tráfico hacia él. El switch físico Cisco alojaba una **zona DMZ** con servidores reales, accesible desde la red virtual
 - **OSPF área 0** como protocolo de routing dinámico entre los dispositivos L3
 
-```
-    ![Topología de Red](https://github.com/user-attachments/assets/b001ff75-13ea-4193-b1b0-24897f031d81)
-
-
-```
+![Topología de Red](https://raw.githubusercontent.com/HighQuality17/Proyecto_Redes_Automatizacion/main/TopologiaRedes.jpeg)
 
 ---
 
