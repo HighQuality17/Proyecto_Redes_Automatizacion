@@ -15,7 +15,8 @@ La topología implementada incluye:
 - **OSPF área 0** como protocolo de routing dinámico entre los dispositivos L3
 
 ```
-              <img width="852" height="719" alt="image" src="https://github.com/user-attachments/assets/1c71756f-b917-4dd5-834a-be43a7f0f749" />
+    ![Topología de Red](https://github.com/user-attachments/assets/b001ff75-13ea-4193-b1b0-24897f031d81)
+
 
 ```
 
